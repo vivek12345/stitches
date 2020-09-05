@@ -123,6 +123,7 @@ export const tokenTypes = [
   'fonts',
   'borderWidths',
   'radii',
+  'transitions',
 ] as const;
 
 const enhanceSheet = (sheet: ISheet): ISheet => {
@@ -290,3 +291,6 @@ function generateAlphabeticName(code: number): string {
 
   return (getAlphabeticChar(x % charsLength) + name).replace(AD_REPLACER_R, '$1-$2');
 }
+
+export const matchString = (val: number | string, regex: RegExp) =>
+  typeof val === 'number' ? false : val.match(regex);

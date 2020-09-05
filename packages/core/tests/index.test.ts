@@ -1287,6 +1287,31 @@ describe('createCss', () => {
     `);
   });
 
+  test('should handle transition shorthand with tokens', () => {
+    const tokens = createTokens({
+      transitions: {
+        slow: 'all 1000ms',
+      },
+    });
+    const css = createCss({ tokens }, null);
+    const atom = css({ transition: 'slow' }) as any;
+
+    const { styles } = css.getStyles(() => {
+      css({ transition: 'slow' }).toString();
+      return '';
+    });
+
+    expect(styles).toMatchInlineSnapshot(`
+      Array [
+        "/* STITCHES:__variables__ */
+      :root{--transitions-slow-property:all;--transitions-slow-duration:1000ms;}",
+        "/* STITCHES */
+      ./*X*/_cIkCGF/*X*/{transition-property:all;}
+      ./*X*/_iMOFnK/*X*/{transition-duration:1000ms;}",
+      ]
+    `);
+  });
+
   test('should handle font shorthand', () => {
     const css = createCss({}, null);
     const atom = css({

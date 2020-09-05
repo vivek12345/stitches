@@ -1,14 +1,11 @@
-import { tokenTypes } from '../constants';
+import { tokenTypes, unitMatch, easingMatch } from '../constants';
 import { tokenizeValue } from './value-tokenizer';
-
-const unitMatch = /^[0-9.]+[a-z|%]/;
-const easingMatch = /\(.*\)|ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end/;
+import { matchString } from '../utils';
 
 const fontSizeMatch = /^([+-]?[0-9.]+([a-z]+|%)?|large(r)?|medium|small(er)?|x{1,3}-large|x{1,2}-small)(\/[+-]?[0-9.]+([a-z]+|%)?)?$/;
 const fontStyleMatch = /^[+-]?[0-9.]+deg$/;
 const fontWeightMatch = /^(0*[1-9][0-9]{0,2}|1000|bold(er)?|lighter)$/;
 
-const matchString = (val: number | string, regex: RegExp) => (typeof val === 'number' ? false : val.match(regex));
 const setChainedValue = (existingValue: string, value: string) => (existingValue ? `${existingValue},${value}` : value);
 
 const emptyTokens: any = {};
