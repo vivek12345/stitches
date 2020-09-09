@@ -1,14 +1,11 @@
-import { tokenTypes } from '../constants';
+import { tokenTypes, unitMatch, easingMatch } from '../constants';
 import { tokenizeValue } from './value-tokenizer';
-
-const unitMatch = /^[0-9.]+[a-z|%]/;
-const easingMatch = /\(.*\)|ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end/;
+import { matchString } from '../utils';
 
 const fontSizeMatch = /^([+-]?[0-9.]+([a-z]+|%)?|large(r)?|medium|small(er)?|x{1,3}-large|x{1,2}-small)(\/[+-]?[0-9.]+([a-z]+|%)?)?$/;
 const fontStyleMatch = /^[+-]?[0-9.]+deg$/;
 const fontWeightMatch = /^(0*[1-9][0-9]{0,2}|1000|bold(er)?|lighter)$/;
 
-const matchString = (val: number | string, regex: RegExp) => (typeof val === 'number' ? false : val.match(regex));
 const setChainedValue = (existingValue: string, value: string) => (existingValue ? `${existingValue},${value}` : value);
 
 const emptyTokens: any = {};
@@ -168,22 +165,23 @@ export const font = createPropertyParser(
   }
 );
 
-export const transition = createPropertyParser(
+export const transition = (tokens: any, value: string) => {
   // The whole token is a transition, so need to grab it before passing in here
-  (_: any, css: any, value: any, index: any, chain: any) => {
-    if (matchString(value, unitMatch)) {
+  const tokenOrValue = tokens.transitions[value] || value;
+  return createPropertyParser((_: any, css: any, parsedValue: any, index: any, chain: any) => {
+    if (matchString(parsedValue, unitMatch)) {
       if (chain.findIndex((part: any) => part.match(unitMatch)) === index) {
-        css.transitionDuration = setChainedValue(css.transitionDuration, value);
+        css.transitionDuration = setChainedValue(css.transitionDuration, parsedValue);
       } else {
-        css.transitionDelay = setChainedValue(css.transitionDelay, value);
+        css.transitionDelay = setChainedValue(css.transitionDelay, parsedValue);
       }
-    } else if (matchString(value, easingMatch)) {
-      css.transitionTimingFunction = setChainedValue(css.transitionTimingFunction, value);
+    } else if (matchString(parsedValue, easingMatch)) {
+      css.transitionTimingFunction = setChainedValue(css.transitionTimingFunction, parsedValue);
     } else {
-      css.transitionProperty = setChainedValue(css.transitionProperty, value);
+      css.transitionProperty = setChainedValue(css.transitionProperty, parsedValue);
     }
-  }
-);
+  })(tokens, tokenOrValue);
+};
 
 export const margin = createPropertyParser((tokens: any, css: any, value: any, index: any) => {
   if (index === 0) {
