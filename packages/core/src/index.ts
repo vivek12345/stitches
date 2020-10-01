@@ -1,4 +1,4 @@
-import { tokenTypes, isServer } from './constants';
+import { tokenTypes, isServer, unitMatch, easingMatch } from './constants';
 import {
   ATOM,
   IAtom,
@@ -20,6 +20,7 @@ import {
   getVendorPrefixAndProps,
   hashString,
   specificityProps,
+  matchString,
 } from './utils';
 export * from './types';
 export * from './css-types';
@@ -569,6 +570,7 @@ export const createCss = <T extends TConfig>(
   // tslint:disable-next-line
   for (const tokenType in tokens) {
     const isNumericScale = tokenType.match(/^(sizes|space|letterSpacings|zIndices)$/);
+    const isMultiVarToken = tokenType.match(/^(transitions)$/);
     // @ts-ignore
     // tslint:disable-next-line
     const scaleTokenKeys = Object.keys(tokens[tokenType]);
@@ -577,13 +579,47 @@ export const createCss = <T extends TConfig>(
       // format token to remove special characters
       // https://stackoverflow.com/a/4374890
       const formattedToken = token.replace(/[^\w\s-]/gi, '');
-      const cssVar = `--${tokenType}-${formattedToken}`;
+      let cssVar = `--${tokenType}-${formattedToken}`;
 
-      // @ts-ignore
-      baseTokens += `${cssVar}:${tokens[tokenType][token]};`;
-
-      // @ts-ignore
-      tokens[tokenType][token] = `var(${cssVar})`;
+      if (isMultiVarToken) {
+        // @ts-ignore
+        const values = tokens[tokenType][token].split(' ');
+        // @ts-ignore
+        tokens[tokenType][token] = {
+          // @ts-ignore
+          original: tokens[tokenType][token],
+        };
+        let isDurationFound = false;
+        values.forEach((value: string) => {
+          if (matchString(value, unitMatch)) {
+            if (isDurationFound) {
+              cssVar = `--${tokenType}-${formattedToken}-delay`;
+              // @ts-ignore
+              tokens[tokenType][token].delay = `var(${cssVar})`;
+            } else {
+              cssVar = `--${tokenType}-${formattedToken}-duration`;
+              // @ts-ignore
+              tokens[tokenType][token].duration = `var(${cssVar})`;
+              isDurationFound = true;
+            }
+          } else if (matchString(value, easingMatch)) {
+            cssVar = `--${tokenType}-${formattedToken}-function`;
+            // @ts-ignore
+            tokens[tokenType][token].function = `var(${cssVar})`;
+          } else {
+            cssVar = `--${tokenType}-${formattedToken}-property`;
+            // @ts-ignore
+            tokens[tokenType][token].property = `var(${cssVar})`;
+          }
+          // @ts-ignore
+          baseTokens += `${cssVar}:${value};`;
+        });
+      } else {
+        // @ts-ignore
+        baseTokens += `${cssVar}:${tokens[tokenType][token]};`;
+        // @ts-ignore
+        tokens[tokenType][token] = `var(${cssVar})`;
+      }
 
       // Add negative tokens
       // tslint:disable-next-line: prefer-template
