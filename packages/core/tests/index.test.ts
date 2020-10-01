@@ -1284,6 +1284,32 @@ describe('createCss: mixed(SSR & Client)', () => {
     `);
   });
 
+  test('should handle transition shorthand with tokens', () => {
+    const tokens = createTokens({
+      transitions: {
+        slow: 'all 1000ms',
+      },
+    });
+    const css = createCss({ tokens }, null);
+
+    const { styles } = css.getStyles(() => {
+      css({ transition: 'slow' }).toString();
+      return '';
+    });
+
+    expect(styles).toMatchInlineSnapshot(`
+      Array [
+        "/* STITCHES:__variables__ */
+      :root{--transitions-slow-property:all;--transitions-slow-duration:1000ms;}",
+        "/* STITCHES:__keyframes__ */
+      ",
+        "/* STITCHES */
+      ./*X*/_dyXEgl/*X*/{transition-property:var(--transitions-slow-property);}
+      ./*X*/_hooANx/*X*/{transition-duration:var(--transitions-slow-duration);}",
+      ]
+    `);
+  });
+
   test('should handle text-decoration shorthand', () => {
     const css = createCss(
       {

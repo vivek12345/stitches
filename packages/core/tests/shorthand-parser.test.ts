@@ -31,7 +31,18 @@ const tokens = {
   fonts: { main: 'potato-font' },
   borderWidths: { hairLine: '1px' },
   radii: { 1: '3px' },
-  transitions: { slow: 'all 1000ms', multiGroup: 'margin-right 2s, color 1s' },
+  transitions: {
+    slow: {
+      original: 'all 1000ms',
+      property: 'all',
+      duration: '1000ms',
+    },
+    multiGroup: {
+      original: 'margin-right 2s, color 1s',
+      property: 'margin-right,color',
+      duration: '2s,1s',
+    },
+  },
 };
 
 // works

@@ -171,20 +171,25 @@ export const font = createPropertyParser(
 
 export const transition = (tokens: any, value: string) => {
   // The whole token is a transition, so need to grab it before passing in here
-  const tokenOrValue = tokens.transitions[value] || value;
+  const originalTokenValue = tokens.transitions[value]?.original;
+  const tokenValue = tokens.transitions[value];
   return createPropertyParser((_: any, css: any, parsedValue: any, index: any, chain: any) => {
     if (matchString(parsedValue, unitMatch)) {
       if (chain.findIndex((part: any) => part.match(unitMatch)) === index) {
-        css.transitionDuration = setChainedValue(css.transitionDuration, parsedValue);
+        css.transitionDuration = tokenValue
+          ? tokenValue.duration
+          : setChainedValue(css.transitionDuration, parsedValue);
       } else {
-        css.transitionDelay = setChainedValue(css.transitionDelay, parsedValue);
+        css.transitionDelay = tokenValue ? tokenValue.delay : setChainedValue(css.transitionDelay, parsedValue);
       }
     } else if (matchString(parsedValue, easingMatch)) {
-      css.transitionTimingFunction = setChainedValue(css.transitionTimingFunction, parsedValue);
+      css.transitionTimingFunction = tokenValue
+        ? tokenValue.function
+        : setChainedValue(css.transitionTimingFunction, parsedValue);
     } else {
-      css.transitionProperty = setChainedValue(css.transitionProperty, parsedValue);
+      css.transitionProperty = tokenValue ? tokenValue.property : setChainedValue(css.transitionProperty, parsedValue);
     }
-  })(tokens, tokenOrValue);
+  })(tokens, tokenValue ? originalTokenValue : value);
 };
 
 export const gap = createPropertyParser((tokens: any, css: any, value: any, index: any) => {
