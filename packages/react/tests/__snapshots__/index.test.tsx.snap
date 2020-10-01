@@ -1,13 +1,61 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`styled Breakpoints work in variants 1`] = `
+{
+  "orderedAppliedStyles": [
+    "._initial_c_vfarC {color: red;}",
+    "._breakpointOne_h_KwWJf {height: 10px;}",
+    "._breakpointTwo_h_hiyRrM {height: 20px;}"
+  ],
+  "props": {
+    "className": "_initial_c_vfarC _breakpointOne_h_KwWJf _breakpointTwo_h_hiyRrM scid-kvQUME"
+  },
+  "children": [
+    "no variant"
+  ]
+}
+`;
+
+exports[`styled Breakpoints work in variants and when a responsive variant is passed ot the element 1`] = `
+{
+  "orderedAppliedStyles": [
+    "._initial_c_vfarC {color: red;}",
+    "._breakpointOne_h_dDcWdv {height: 100px;}",
+    "._breakpointTwo_h_dPiPAc {height: 200px;}"
+  ],
+  "props": {
+    "className": "_breakpointOne_h_dDcWdv _breakpointTwo_h_dPiPAc _initial_c_vfarC scid-cXpAaU"
+  },
+  "children": [
+    "with responsive variant"
+  ]
+}
+`;
+
+exports[`styled Breakpoints work in variants and when the variant is passed to the jsx element 1`] = `
+{
+  "orderedAppliedStyles": [
+    "._initial_c_vfarC {color: red;}",
+    "._breakpointOne_h_kgNeVv {height: 1000px;}",
+    "._breakpointTwo_h_fptqfg {height: 2000px;}"
+  ],
+  "props": {
+    "className": "_breakpointOne_h_kgNeVv _breakpointTwo_h_fptqfg _initial_c_vfarC scid-cXpAaU"
+  },
+  "children": [
+    "with variant"
+  ]
+}
+`;
+
 exports[`styled Handles compound variant 1`] = `
 {
   "orderedAppliedStyles": [
-    "._bieopk {background-color: red;}",
-    "._dtTvho {height: 60px;}"
+    "._gwFOTp {background-color: red;}",
+    "._cDgDLB {height: 60px;}"
   ],
   "props": {
-    "className": "_dtTvho _bieopk scid-URbJg"
+    "className": "_cDgDLB _gwFOTp scid-URbJg"
   },
   "children": [
     "not compound"
@@ -18,11 +66,11 @@ exports[`styled Handles compound variant 1`] = `
 exports[`styled Handles compound variant 2`] = `
 {
   "orderedAppliedStyles": [
-    "._bSHlld {height: 30px;}",
-    "._hEGtPv {background-color: compoundColor;}"
+    "._izHeYc {height: 30px;}",
+    "._eBRzFG {background-color: compoundColor;}"
   ],
   "props": {
-    "className": "_hEGtPv _bSHlld scid-URbJg"
+    "className": "_eBRzFG _izHeYc scid-URbJg"
   },
   "children": [
     "compound"
@@ -33,11 +81,11 @@ exports[`styled Handles compound variant 2`] = `
 exports[`styled Handles css prop 1`] = `
 {
   "orderedAppliedStyles": [
-    "._iBRUhC {background-color: gray;}",
-    "._dzoaVP {color: red;}"
+    "._fNPZtH {background-color: gray;}",
+    "._vfarC {color: red;}"
   ],
   "props": {
-    "className": "_dzoaVP _iBRUhC scid-dmZJpl"
+    "className": "_vfarC _fNPZtH scid-dmZJpl"
   },
   "children": [
     "hello world"
@@ -48,11 +96,11 @@ exports[`styled Handles css prop 1`] = `
 exports[`styled Handles css prop 2`] = `
 {
   "orderedAppliedStyles": [
-    "._iBRUhC {background-color: gray;}",
-    "._dzoaVP {color: red;}"
+    "._fNPZtH {background-color: gray;}",
+    "._vfarC {color: red;}"
   ],
   "props": {
-    "className": "_dzoaVP _iBRUhC scid-dmZJpl"
+    "className": "_vfarC _fNPZtH scid-dmZJpl"
   },
   "children": [
     "hello world"
@@ -60,13 +108,27 @@ exports[`styled Handles css prop 2`] = `
 }
 `;
 
+exports[`styled It handles variants with a numeric value of 0 1`] = `
+{
+  "orderedAppliedStyles": [
+    "._NkcBC {height: 1px;}"
+  ],
+  "props": {
+    "className": "_NkcBC scid-fUwIQk"
+  },
+  "children": [
+    "height should equal '1px'"
+  ]
+}
+`;
+
 exports[`styled Renders basic component 1`] = `
 {
   "orderedAppliedStyles": [
-    "._bOFHNE div {font-size: 18px;}"
+    "._dawVaV div {font-size: 18px;}"
   ],
   "props": {
-    "className": "hi _bOFHNE scid-dIyoRL"
+    "className": "hi _dawVaV scid-dIyoRL"
   },
   "children": [
     "hello world"
@@ -77,10 +139,10 @@ exports[`styled Renders basic component 1`] = `
 exports[`styled renders component with variant 1`] = `
 {
   "orderedAppliedStyles": [
-    "._iBRUhC {background-color: gray;}"
+    "._fNPZtH {background-color: gray;}"
   ],
   "props": {
-    "className": "_iBRUhC scid-gFxMiu"
+    "className": "_fNPZtH scid-gFxMiu"
   },
   "children": [
     "hello world"
@@ -91,10 +153,10 @@ exports[`styled renders component with variant 1`] = `
 exports[`styled renders component with variant 2`] = `
 {
   "orderedAppliedStyles": [
-    "._bieopk {background-color: red;}"
+    "._gwFOTp {background-color: red;}"
   ],
   "props": {
-    "className": "_bieopk scid-gFxMiu"
+    "className": "_gwFOTp scid-gFxMiu"
   },
   "children": [
     "hello world"
@@ -105,10 +167,10 @@ exports[`styled renders component with variant 2`] = `
 exports[`styled renders component with variant 3`] = `
 {
   "orderedAppliedStyles": [
-    "._YfjLh {background-color: blue;}"
+    "._htDnsg {background-color: blue;}"
   ],
   "props": {
-    "className": "_YfjLh scid-gFxMiu"
+    "className": "_htDnsg scid-gFxMiu"
   },
   "children": [
     "hello world"

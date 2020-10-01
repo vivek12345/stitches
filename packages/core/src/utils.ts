@@ -12,9 +12,12 @@ import {
   borderWidth,
   boxShadow,
   font,
+  gap,
   margin,
   padding,
   transition,
+  textDecoration,
+  flex,
 } from './shorthand-parser';
 import { IBreakpoints, ICssPropToToken, ISheet } from './types';
 
@@ -156,7 +159,7 @@ export const createSheets = (env: any, screens: IBreakpoints = {}) => {
 
     return {
       tags,
-      sheets: ['__variables__', MAIN_BREAKPOINT_ID]
+      sheets: ['__variables__', '__keyframes__', MAIN_BREAKPOINT_ID]
         .concat(Object.keys(screens))
         .reduce<{ [key: string]: ISheet }>((aggr, key, index) => {
           let style = existingStyles[index];
@@ -174,7 +177,7 @@ export const createSheets = (env: any, screens: IBreakpoints = {}) => {
 
   return {
     tags,
-    sheets: ['__variables__', MAIN_BREAKPOINT_ID]
+    sheets: ['__variables__', '__keyframes__', MAIN_BREAKPOINT_ID]
       .concat(Object.keys(screens))
       .reduce<{ [key: string]: ISheet }>((aggr, key) => {
         aggr[key] = enhanceSheet({
@@ -195,31 +198,6 @@ export const specificityProps: {
 } = {
   border,
   boxShadow,
-  flex: (tokens: any, value: any) => {
-    if (Array.isArray(value)) {
-      if (value.length === 2) {
-        return {
-          flexGrow: value[0],
-          ...(isNaN(value[1]) ? { flexBasis: value[1] } : { flexShrink: value[1] }),
-        };
-      }
-      if (value.length === 3) {
-        return {
-          flexGrow: value[0],
-          flexShrink: value[1],
-          flexBasis: value[2],
-        };
-      }
-    }
-
-    return isNaN(value)
-      ? {
-          flexBasis: value,
-        }
-      : {
-          flexGrow: value,
-        };
-  },
   overflow: (tokens: any, value: any) => ({
     overflowX: value,
     overflowY: value,
@@ -238,6 +216,9 @@ export const specificityProps: {
   borderLeft,
   borderTop,
   borderRight,
+  textDecoration,
+  gap,
+  flex,
 };
 
 export const getVendorPrefixAndProps = (env: any) => {

@@ -1,10 +1,18 @@
-import { MAIN_BREAKPOINT_ID, TConfig, TCss, TDefaultCss, TMainBreakPoint, createCss, hashString } from '@stitches/core';
+import {
+  MAIN_BREAKPOINT_ID,
+  TConfig,
+  TCss,
+  TCssProperties,
+  TMainBreakPoint,
+  createCss,
+  hashString,
+} from '@stitches/core';
 export { _ATOM } from '@stitches/core';
 import * as React from 'react';
 
 let hasWarnedInlineStyle = false;
 
-export type TCssProp<T extends TConfig> = TDefaultCss<T> | (string & {});
+export type TCssProp<T extends TConfig> = TCssProperties<T> | (string & {});
 
 /**
  * Extracts Variants from an object:
@@ -26,50 +34,52 @@ export type BreakPointsKeys<Config extends TConfig> = keyof Config['breakpoints'
  */
 export type CastStringToBoolean<Val> = Val extends 'true' | 'false' ? boolean | 'true' | 'false' : never;
 /**
+ * adds the string type to number while also preserving autocomplete for other string values
+ */
+export type CastNumberToString<Val> = Val extends number ? string & {} : never;
+
+/**
  * Takes a variants object and converts it to the correct type information for usage in props
  */
 export type VariantASProps<Config extends TConfig, VariantsObj> = {
   [V in keyof VariantsObj]?:
     | CastStringToBoolean<VariantsObj[V]>
     | VariantsObj[V]
+    | CastNumberToString<VariantsObj[V]>
     | {
-        [B in BreakPointsKeys<Config> | TMainBreakPoint]?: CastStringToBoolean<VariantsObj[V]> | VariantsObj[V];
+        [B in BreakPointsKeys<Config> | TMainBreakPoint]?:
+          | CastStringToBoolean<VariantsObj[V]>
+          | VariantsObj[V]
+          | CastNumberToString<VariantsObj[V]>;
       };
 };
 
+type MergeElementProps<As extends React.ElementType, Props extends object = {}> = Omit<
+  React.ComponentPropsWithRef<As>,
+  keyof Props
+> &
+  Props;
+
 /**
  * Types for a styled component which contain:
- * 1. First overload which matches when the as prop isn't passed
- * 2. Second overload which matches when the as prop *IS* passed
- * 3. The compoundVariants function typings
+ * 1. Props of a styled component
+ * 2. The compoundVariants function typings
  */
-export interface IStyledComponent<
-  ComponentOrTag extends keyof JSX.IntrinsicElements | React.ComponentType<any>,
-  Variants,
-  Config extends TConfig
-> {
+export interface IStyledComponent<ComponentOrTag extends React.ElementType, Variants, Config extends TConfig> {
   /**
-   * First overload without the "as" prop
+   * Props of a styled component
    */
-  (
-    props: React.ComponentPropsWithRef<ComponentOrTag> & {
-      as?: never;
+  <As extends React.ElementType = ComponentOrTag>(
+    // Merge native props with variant props to prevent props clashing.
+    // e.g. some HTML elements have `size` attribute. And when you combine
+    // both types (native and variant props) the common props become
+    // unusable (in typing-wise)
+    props: MergeElementProps<As, VariantASProps<Config, Variants>> & {
+      as?: As;
       css?: TCssWithBreakpoints<Config>;
       className?: string;
       children?: any;
-    } & VariantASProps<Config, Variants>
-  ): any;
-  /**
-   * Second overload * WITH * the "as" prop.
-   */
-  <AS extends keyof JSX.IntrinsicElements | React.ComponentType>(
-    props: {
-      as: AS;
-      css?: TCssWithBreakpoints<Config>;
-      className?: string;
-      children?: any;
-    } & VariantASProps<Config, Variants> &
-      React.ComponentPropsWithRef<AS>
+    }
   ): any;
   /**
    * Compound Variant typing:
@@ -116,13 +126,14 @@ export type TStyled<Config extends TConfig> = {
   // tslint:disable-next-line: callable-types
   <
     TagOrComponent extends keyof JSX.IntrinsicElements | React.ComponentType<any> | IStyledComponent<any, any, Config>,
-    BaseAndVariantStyles extends TComponentStylesObject<Config>
+    BaseAndVariantStyles extends TComponentStylesObject<Config>,
+    Variants = TExtractVariants<BaseAndVariantStyles>
   >(
     tag: TagOrComponent,
     baseStyles: BaseAndVariantStyles | TComponentStylesObject<Config>
-  ): TagOrComponent extends IStyledComponent<any, any, Config>
-    ? TagOrComponent
-    : IStyledComponent<TagOrComponent, TExtractVariants<BaseAndVariantStyles>, Config>;
+  ): TagOrComponent extends IStyledComponent<infer T, infer V, Config>
+    ? IStyledComponent<T, Omit<V, keyof Variants> & Variants, Config>
+    : IStyledComponent<TagOrComponent, Variants, Config>;
 } & TProxyStyledElements<Config>;
 
 const createCompoundVariantsMatcher = (breakPoints: any, existingMap?: any) => {
@@ -216,19 +227,20 @@ export const createStyled = <Config extends TConfig>(
           const evaluatedVariant = evaluatedVariantMap.get(key);
           // normalize the value so that we only have to deal with one structure:
           const keyVal =
-            props[key] && typeof props[key] !== 'object' ? { [MAIN_BREAKPOINT_ID]: props[key] } : props[key];
+            props[key] && typeof props[key] === 'object' ? props[key] : { [MAIN_BREAKPOINT_ID]: props[key] };
           // tslint:disable-next-line: forin
           for (const breakpoint in keyVal) {
+            const stringBreakpointVal = String(keyVal[breakpoint]);
             // check if the variant exist for this breakpoint
-            if (keyVal[breakpoint] && evaluatedVariant && evaluatedVariant.get(String(keyVal[breakpoint]))) {
-              compositions.push(evaluatedVariant.get(String(keyVal[breakpoint]))?.[breakpoint]);
+            if (evaluatedVariant && evaluatedVariant.get(stringBreakpointVal)) {
+              compositions.push(evaluatedVariant.get(stringBreakpointVal)?.[breakpoint]);
             }
             /** Compound variants: */
             if (numberOfUnResolvedCompoundVariants.current) {
               compoundVariants.forEach((compoundVariant, i) => {
                 // if this breakpoint  matches a compound
                 // eslint-disable-next-line
-                if (String(keyVal[breakpoint]) === String(compoundVariant[key])) {
+                if (stringBreakpointVal === String(compoundVariant[key])) {
                   compoundRequiredMatches.get(breakpoint)[i]--;
                 }
                 // when the required matches reach 0 for any compound ...
@@ -255,9 +267,15 @@ export const createStyled = <Config extends TConfig>(
         ...propsWithoutVariantsAndCssProp,
         as: props.as || as,
         ref,
-        className: css(stitchesComponentId, ...compositions, props.className),
+        className: css(stitchesComponentId, ...compositions, props.className).toString(),
       });
     });
+    StitchesComponent.displayName =
+      typeof currentAs === 'string'
+        ? `styled(${currentAs})`
+        : Component && Component.displayName
+        ? `styled(${Component.displayName})`
+        : `styled(Component\)`;
 
     StitchesComponent.toString = () => `.${stitchesComponentId}`;
 

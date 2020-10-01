@@ -9,7 +9,8 @@ const fontStyleMatch = /^[+-]?[0-9.]+deg$/;
 const fontWeightMatch = /^(0*[1-9][0-9]{0,2}|1000|bold(er)?|lighter)$/;
 
 const matchString = (val: number | string, regex: RegExp) => (typeof val === 'number' ? false : val.match(regex));
-const setChainedValue = (existingValue: string, value: string) => (existingValue ? `${existingValue},${value}` : value);
+const setChainedValue = (existingValue: string, value: string, separator = ',') =>
+  existingValue ? `${existingValue}${separator}${value}` : value;
 
 const emptyTokens: any = {};
 tokenTypes.forEach((type) => (emptyTokens[type] = {}));
@@ -186,6 +187,15 @@ export const transition = (tokens: any, value: string) => {
   })(tokens, tokenOrValue);
 };
 
+export const gap = createPropertyParser((tokens: any, css: any, value: any, index: any) => {
+  if (index === 0) {
+    css.rowGap = tokens.space[value] || value;
+    css.columnGap = tokens.space[value] || value;
+  } else {
+    css.columnGap = tokens.space[value] || value;
+  }
+});
+
 export const margin = createPropertyParser((tokens: any, css: any, value: any, index: any) => {
   if (index === 0) {
     css.marginTop = tokens.space[value] || value;
@@ -347,4 +357,59 @@ export const boxShadow = (tokens: any, value: string) => {
       .map((chain) => chain.map((val) => tokens.colors[val] || val).join(' '))
       .join(', '),
   };
+};
+
+export const textDecoration = createPropertyParser((tokens: any, css: any, value: any) => {
+  if (matchString(value, /unset/)) {
+    css.textDecorationStyle = value;
+    css.textDecorationLine = value;
+    css.textDecorationColor = value;
+    css.textDecorationThickness = value;
+  } else if (matchString(value, /solid|double|dotted|dashed|wavy/)) {
+    css.textDecorationStyle = value;
+  } else if (matchString(value, /none|underline|overline|line-through|blink/)) {
+    css.textDecorationLine = setChainedValue(css.textDecorationLine, value, ' ');
+  } else if (matchString(value, unitMatch) || matchString(value, /auto|from-font/)) {
+    css.textDecorationThickness = value;
+  } else {
+    css.textDecorationColor = tokens.colors[value] || value;
+  }
+});
+
+export const flex = (tokens: any, value: any) => {
+  const parsedValue = tokenizeValue(value)[0];
+
+  if (parsedValue.length === 2) {
+    return {
+      flexGrow: parsedValue[0],
+      ...(isNaN(Number(parsedValue[1]))
+        ? {
+            flexShrink: '1',
+            flexBasis: parsedValue[1],
+          }
+        : {
+            flexShrink: parsedValue[1],
+            flexBasis: '0%',
+          }),
+    };
+  }
+  if (parsedValue.length === 3) {
+    return {
+      flexGrow: parsedValue[0],
+      flexShrink: parsedValue[1],
+      flexBasis: parsedValue[2],
+    };
+  }
+
+  return isNaN(Number(parsedValue[0]))
+    ? {
+        flexGrow: '1',
+        flexShrink: '1',
+        flexBasis: parsedValue[0],
+      }
+    : {
+        flexGrow: parsedValue[0],
+        flexShrink: '1',
+        flexBasis: '0%',
+      };
 };

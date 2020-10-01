@@ -3,31 +3,35 @@
   "private": true,
   "scripts": {
     "release": "yarn build && yarn test && lerna publish",
+    "release:canary": "yarn build && yarn test && lerna publish --dist-tag canary",
     "build": "preconstruct build",
     "postinstall": "lerna bootstrap && preconstruct dev",
     "test:css": "yarn workspace @stitches/core run test",
     "test:react": "yarn workspace @stitches/react run test",
-    "test": "yarn test:css && yarn test:react"
+    "test": "jest --runInBand --ci --coverage",
+    "test:watch": "jest --watch --updateSnapshot"
   },
   "workspaces": [
     "packages/*"
   ],
   "license": "MIT",
   "devDependencies": {
+    "@babel/core": "^7.11.5",
+    "@babel/preset-env": "^7.11.5",
+    "@babel/preset-typescript": "^7.10.4",
+    "@preconstruct/cli": "^1.1.27",
     "@types/jest": "^25.2.1",
     "@types/react": "^16.9.34",
-    "dts-bundle": "^0.7.3",
     "husky": "4.2.5",
     "jest": "^25.3.0",
     "lerna": "^3.22.1",
     "lint-staged": "^9.5.0",
     "prettier": "^2.0.4",
     "rimraf": "^3.0.2",
-    "semver": "^7.3.0",
     "ts-jest": "~25.3.1",
-    "tslint": "^6.1.1",
     "tslint-config-prettier": "^1.18.0",
     "tslint-plugin-prettier": "^2.3.0",
+    "tslint": "^6.1.1",
     "typescript": "^3.8.3"
   },
   "husky": {
@@ -36,10 +40,6 @@
     }
   },
   "dependencies": {
-    "@babel/core": "^7.11.5",
-    "@babel/preset-env": "^7.11.5",
-    "@babel/preset-typescript": "^7.10.4",
-    "@preconstruct/cli": "^1.1.27",
     "react": "^16.13.1"
   },
   "preconstruct": {

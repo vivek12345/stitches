@@ -1,4 +1,4 @@
-import { tokenTypes } from './constants';
+import { tokenTypes, isServer } from './constants';
 import {
   ATOM,
   IAtom,
@@ -39,7 +39,7 @@ const createSSRCssRuleClass = (s: string) => {
 
 const createSelector = (className: string, selector: string) => {
   const cssRuleClassName = className ? `.${className}` : '';
-  if (selector && selector.includes('&')) return selector.replace(/&/gi, cssRuleClassName);
+  if (selector && selector.includes('%')) return selector.replace(/\%/gi, cssRuleClassName);
   if (selector) {
     return `${cssRuleClassName}${selector}`;
   }
@@ -70,6 +70,68 @@ const resolveTokens = (cssProp: string, value: any, tokens: any) => {
 };
 
 /**
+ * Merges two selectors together while also handling pseudos correctly
+ */
+const mergeSelectors = (firstSelector: string, secondSelector: string) => {
+  // a pseudo class and starts with &, normalize it:
+  const normalizedSelector =
+    secondSelector[0] === '&' && secondSelector[1] === ':' ? secondSelector.substr(1) : secondSelector;
+
+  if (!firstSelector && normalizedSelector.indexOf('&') > -1) {
+    return normalizedSelector.replace(/&/g, `%${firstSelector}`);
+  }
+  if (normalizedSelector.indexOf('&') > -1) {
+    return normalizedSelector.replace(/&/g, firstSelector);
+  }
+  if (normalizedSelector[0] === ':') {
+    return normalizedSelector.replace(':', `${firstSelector}:`);
+  }
+  return `${firstSelector} ${normalizedSelector.trim()}`;
+};
+
+// this is hacky as hell.
+// we should experiment handling pseudo classes
+// specificity via buckets in the sheet
+const fixSpecificity = (selectorString: string) => {
+  let _selectorString = selectorString;
+  // We want certain pseudo selectors to take precedence over other pseudo
+  // selectors, so we increase specificity
+  if (_selectorString[0] === '%' || !_selectorString.match('%')) {
+    if (_selectorString?.match(/\:hover/)) {
+      _selectorString = `%${_selectorString}`;
+    } else if (_selectorString?.match(/\:active/)) {
+      _selectorString = `%%${_selectorString}`;
+    } else if (_selectorString?.match(/\:focus|\:focus-visible/)) {
+      _selectorString = `%%%${_selectorString}`;
+    } else if (_selectorString?.match(/\:read-only/)) {
+      _selectorString = `%%%%${_selectorString}`;
+    } else if (_selectorString?.match(/\:disabled/)) {
+      _selectorString = `%%%%%${_selectorString}`;
+    }
+  }
+  return _selectorString;
+};
+
+const allPossibleCases = ([first, ...rest]: string[][]): string[] => {
+  if (rest.length === 0) {
+    if (first) {
+      return first;
+    }
+    return [];
+  } else {
+    const result = [];
+    const allCasesOfRest = allPossibleCases(rest);
+
+    for (let i = 0; i < allCasesOfRest.length; i++) {
+      for (let j = 0; j < first.length; j++) {
+        result.push(mergeSelectors(first[j], allCasesOfRest[i]));
+      }
+    }
+    return result;
+  }
+};
+
+/**
  * iterates over a style object keys and values,
  * resolving them to their final form then calls the value callback with the prop, value
  * and the current value nesting path in the style object:
@@ -83,8 +145,17 @@ const resolveTokens = (cssProp: string, value: any, tokens: any) => {
 const processStyleObject = (
   obj: any,
   config: TConfig<true>,
-  valueMiddleware: (prop: string, value: string, currentNestingPath: string[]) => void,
-  currentNestingPath: string[] = [],
+  valueMiddleware: (
+    prop: string,
+    value: string,
+    breakpoint: string,
+    mediaQueries: string[],
+    nestingPath: string
+  ) => void,
+  nestingPath = '%',
+  selectors: string[][] = [],
+  breakpoint = MAIN_BREAKPOINT_ID,
+  mediaQueries: string[] = [],
   shouldHandleUtils = true,
   shouldHandleSpecificityProps = true
 ) => {
@@ -92,106 +163,103 @@ const processStyleObject = (
   // value is: cssValue, a util, specificity prop, or
   for (const key of Object.keys(obj)) {
     const val = obj[key];
-    const isUtilProp = shouldHandleUtils && key in config.utils;
-    const isSpecificityProp = shouldHandleSpecificityProps && !isUtilProp && key in specificityProps;
-    /** Nested styles: */
-    if (typeof val === 'object' && !isSpecificityProp && !isUtilProp) {
-      // Atom value:
-      if (val[ATOM]) {
-        valueMiddleware(key, val, currentNestingPath);
-        continue;
-      }
-      // handle the value object
-      processStyleObject(val, config, valueMiddleware, [...currentNestingPath, key]);
+
+    /** Breakpoint */
+    if (key in config.breakpoints) {
+      processStyleObject(val, config, valueMiddleware, nestingPath, selectors, key, mediaQueries);
+      continue;
+    }
+
+    /** Media query */
+    if (key[0] === '@') {
+      processStyleObject(val, config, valueMiddleware, nestingPath, selectors, breakpoint, [...mediaQueries, key]);
       continue;
     }
 
     /** Utils: */
-    if (isUtilProp) {
+    if (shouldHandleUtils && key in config.utils) {
       // Resolve the util from the util function:
-      const resolvedUtils = config.utils[key](config)(val);
-      processStyleObject(resolvedUtils, config, valueMiddleware, [...currentNestingPath], false);
+      const resolvedUtils = config.utils[key](val, config);
+      // prettier-ignore
+      processStyleObject(resolvedUtils, config, valueMiddleware, nestingPath, selectors, breakpoint, mediaQueries, false);
       continue;
     }
 
-    /** Specificity Props: */
-    // shorthand css props or css props that has baked in handling:
-    // see specificityProps in ./utils
-    if (isSpecificityProp) {
+    /**
+     * Specificity Props:
+     * shorthand css props or css props that has baked in handling:
+     * see specificityProps in ./utils
+     */
+    if (!(key in config.utils) && shouldHandleSpecificityProps && key in specificityProps) {
       const resolvedSpecificityProps = specificityProps[key](config.tokens, val);
-      processStyleObject(resolvedSpecificityProps, config, valueMiddleware, [...currentNestingPath], false, false);
+      // prettier-ignore
+      processStyleObject(resolvedSpecificityProps, config, valueMiddleware, nestingPath, selectors, breakpoint, mediaQueries, false, false);
       continue;
     }
+
+    /** Nested styles: */
+    if (typeof val === 'object') {
+      // Atom value:
+      if (val[ATOM]) {
+        valueMiddleware(key, val, breakpoint, mediaQueries, nestingPath);
+        continue;
+      }
+
+      /**
+       * handle path merging:
+       */
+
+      /** Current key is a comma separated rule */
+      if (key.indexOf(',') > -1) {
+        // split by comma and then merge it with he current nesting path
+        const newSelectors = [...selectors, key.split(',').map((el) => mergeSelectors(nestingPath, el))];
+        // reset the nesting path to '' as it's already no part of selectors
+        processStyleObject(val, config, valueMiddleware, '', newSelectors, breakpoint, mediaQueries);
+        continue;
+      }
+
+      /** Current key is a normal css selector */
+      processStyleObject(
+        val,
+        config,
+        valueMiddleware,
+        // merging normal selectors
+        // this is the case when we have no comma separated rules
+        mergeSelectors(nestingPath, key),
+        selectors,
+        breakpoint,
+        mediaQueries
+      );
+      continue;
+    }
+
+    /**
+     * if we've reached this far, this means that we've reached a value
+     * which we would then use inside the valueMiddleware
+     */
+    const stuff = nestingPath ? [...selectors, [nestingPath]] : selectors;
+    const finalSelector = allPossibleCases(stuff).map(fixSpecificity).join(',');
+
+    /** Unitless handling: */
     if (typeof val === 'number') {
       // handle unitless numbers:
       valueMiddleware(
         key,
         // tslint:disable-next-line: prefer-template
         `${unitlessKeys[key] ? val : val + 'px'}`,
-        currentNestingPath
+        breakpoint,
+        mediaQueries,
+        finalSelector
       );
-    } else if (val !== undefined) {
-      valueMiddleware(key, resolveTokens(key, val, config.tokens), currentNestingPath);
+      continue;
+    }
+
+    /** Anything else other than undefined values */
+    if (val !== undefined) {
+      valueMiddleware(key, resolveTokens(key, val, config.tokens), breakpoint, mediaQueries, finalSelector);
     }
   }
 };
-
-/**
- * Resolves a css prop nesting path to a css selector and the breakpoint the css prop is meant to be injected to
- */
-const resolveBreakpointAndSelectorAndInlineMedia = (nestingPath: string[], config: TConfig<true>) =>
-  nestingPath.reduce(
-    (acc, breakpointOrSelector, i) => {
-      // utilityFirst selector specific resolution:
-      const isOverride = config.utilityFirst && breakpointOrSelector === 'override';
-      if (isOverride) {
-        // any level above 0
-        if (i) {
-          throw new Error(
-            `@stitches/core - You can not override at this level [${nestingPath
-              .slice(0, i - 1)
-              .join(', ')}, -> ${breakpointOrSelector}], only at the top level definition`
-          );
-        }
-        return acc;
-      }
-      // breakpoints handling:
-      if (breakpointOrSelector in config.breakpoints || breakpointOrSelector === MAIN_BREAKPOINT_ID) {
-        if (acc.breakpoint !== MAIN_BREAKPOINT_ID) {
-          throw new Error(
-            `@stitches/core - You are nesting the breakpoint "${breakpointOrSelector}" into "${acc.breakpoint}", that makes no sense? :-)`
-          );
-        }
-        acc.breakpoint = breakpointOrSelector;
-        return acc;
-      }
-
-      if (breakpointOrSelector[0] === '@') {
-        acc.inlineMediaQueries.push(breakpointOrSelector);
-        return acc;
-      }
-      // Normal css nesting selector:
-      acc.nestingPath =
-        acc.nestingPath +
-        // If you manually prefix with '&' we remove it for identity consistency
-        // only for pseudo selectors and nothing else
-        (breakpointOrSelector[0] === '&' && breakpointOrSelector[1] === ':'
-          ? breakpointOrSelector.substr(1)
-          : // pseudo elements/class
-          // don't prepend with a whitespace
-          breakpointOrSelector[0] === ':'
-          ? breakpointOrSelector
-          : // else just nest with a space
-            // tslint:disable-next-line: prefer-template
-            ' ' + breakpointOrSelector);
-      return acc;
-    },
-    {
-      breakpoint: MAIN_BREAKPOINT_ID,
-      nestingPath: '',
-      inlineMediaQueries: [] as string[],
-    }
-  );
 
 /**
  * converts an object style css prop to its normal css style object prop and handles prefixing:
@@ -212,7 +280,7 @@ const hyphenAndVendorPrefixCssProp = (cssProp: string, vendorProps: any[], vendo
   return cssHyphenProp;
 };
 
-const toStringCachedAtom = function (this: IAtom) {
+const toStringCachedAtom = function (this: IAtom | IComposedAtom) {
   return this._className!;
 };
 
@@ -221,8 +289,11 @@ const toStringCompose = function (this: IComposedAtom) {
   // cache the className on this instance
   // @ts-ignore
   this._className = className;
-  // @ts-ignore
-  this.toString = toStringCachedAtom;
+  // we only want to enable caching on the client
+  // because on the server we want to make sure that the composition is evaluated on each request
+  if (!isServer) {
+    this.toString = toStringCachedAtom;
+  }
   return className;
 };
 
@@ -358,12 +429,19 @@ const composeIntoMap = (map: Map<string, IAtom>, atoms: (IAtom | IComposedAtom)[
   }
 };
 
+declare global {
+  interface Window {
+    Deno: any;
+  }
+}
+
 export const createTokens = <T extends ITokensDefinition>(tokens: T) => {
   return tokens;
 };
 export const createCss = <T extends TConfig>(
   _config: T,
-  env: Window | null = typeof window === 'undefined' ? null : window
+  // Check against Deno env explicitly #199
+  env: Window | null = typeof window === 'undefined' || window?.Deno ? null : window
 ): TCss<T> => {
   // pre-checked config to avoid checking these all the time
   // tslint:disable-next-line
@@ -426,7 +504,7 @@ export const createCss = <T extends TConfig>(
     : createServerToString(sheets, config.breakpoints, cssClassnameProvider);
 
   let themeToString = createThemeToString(classPrefix, sheets.__variables__);
-  let keyframesToString = createKeyframesToString(sheets[MAIN_BREAKPOINT_ID]);
+  let keyframesToString = createKeyframesToString(sheets.__keyframes__);
   const compose = (...atoms: IAtom[]): IComposedAtom => {
     const map = new Map<string, IAtom>();
     composeIntoMap(map, atoms);
@@ -467,22 +545,6 @@ export const createCss = <T extends TConfig>(
 
     // prepare the cssProp
     const cssHyphenProp = hyphenAndVendorPrefixCssProp(cssProp, vendorProps, vendorPrefix);
-
-    // We want certain pseudo selectors to take presedence over other pseudo
-    // selectors, so we increase specificity
-    if (!selectorString?.match('&')) {
-      if (selectorString?.match(/\:hover/)) {
-        selectorString = `&&${selectorString}`;
-      } else if (selectorString?.match(/\:active/)) {
-        selectorString = `&&&${selectorString}`;
-      } else if (selectorString?.match(/\:focus|\:focus-visible/)) {
-        selectorString = `&&&&${selectorString}`;
-      } else if (selectorString?.match(/\:read-only/)) {
-        selectorString = `&&&&&${selectorString}`;
-      } else if (selectorString?.match(/\:disabled/)) {
-        selectorString = `&&&&&&${selectorString}`;
-      }
-    }
 
     // Create a new atom
     const atom: IAtom = {
@@ -547,7 +609,6 @@ export const createCss = <T extends TConfig>(
     sheets.__variables__.insertRule(baseTokens);
   }
   // Keeping track of all atoms for SSR
-  const compositionsCache = new Set<IComposedAtom>();
   const atomCache = new Map<string, IAtom>();
   const keyFramesCache = new Map<string, IKeyframesAtom>();
   const themeCache = new Map<ITokensDefinition, IThemeAtom>();
@@ -562,19 +623,14 @@ export const createCss = <T extends TConfig>(
       if (typeof definitions[x] === 'string' || definitions[x][ATOM]) {
         args[index++] = definitions[x];
       } else {
-        processStyleObject(definitions[x], config, (prop, value, path) => {
-          const { nestingPath, breakpoint, inlineMediaQueries } = resolveBreakpointAndSelectorAndInlineMedia(
-            path,
-            config
-          );
-          args[index++] = createAtom(prop, value, breakpoint, nestingPath, inlineMediaQueries);
+        processStyleObject(definitions[x], config, (prop, value, breakpoint, mediaQueries, path) => {
+          args[index++] = createAtom(prop, value, breakpoint, path, mediaQueries);
         });
       }
     }
     // might cause memory leaks when doing css() inside a component
     // but we need this for now to fix SSR
     const composition = compose(...args);
-    compositionsCache.add(composition);
 
     return composition;
   }) as any;
@@ -606,26 +662,28 @@ export const createCss = <T extends TConfig>(
   };
 
   cssInstance.global = (definitions: any) => {
-    processStyleObject(definitions, config, (prop, value, path) => {
-      const { nestingPath, breakpoint, inlineMediaQueries } = resolveBreakpointAndSelectorAndInlineMedia(path, config);
-      if (!nestingPath.length) {
-        throw new Error('Global styles need to be nested');
+    const atoms: IAtom[] = [];
+    processStyleObject(definitions, config, (prop, value, breakpoint, mediaQueries, path) => {
+      if (path === '%') {
+        throw new Error('Global styles need to be nested within a selector');
       }
       // Create a global atom and call toString() on it directly to inject it
       // as global atoms don't generate class names of their own
-      createAtom(prop, value, breakpoint, nestingPath, inlineMediaQueries, true).toString();
+      atoms.push(createAtom(prop, value, breakpoint, path, mediaQueries, true));
     });
+    return () => compose(...atoms).toString();
   };
+
   cssInstance.keyframes = (definition: any): IKeyframesAtom => {
     let cssRule = '';
     let currentTimeProp = '';
-    processStyleObject(definition, config, (key, value, [timeProp]) => {
+    processStyleObject(definition, config, (key, value, _, __, timeProp) => {
       if (timeProp !== currentTimeProp) {
         if (cssRule) {
           cssRule += `}`;
         }
         currentTimeProp = timeProp;
-        cssRule += `${timeProp} {`;
+        cssRule += `${timeProp.substr(2)} {`;
       }
       cssRule += `${hyphenAndVendorPrefixCssProp(key, vendorProps, vendorPrefix)}: ${resolveTokens(
         key,
@@ -633,6 +691,7 @@ export const createCss = <T extends TConfig>(
         tokens
       )};`;
     });
+    cssRule += `}`;
 
     const hash = hashString(cssRule);
     // Check if an atom exist with the same hash and return it if so
@@ -653,13 +712,11 @@ export const createCss = <T extends TConfig>(
   };
 
   cssInstance.getStyles = (cb: any) => {
-    // Reset the composition to avoid ssr issues
-    compositionsCache.forEach((composition) => {
-      composition.toString = toStringCompose;
-    });
     // tslint:disable-next-line
     for (let sheet in sheets) {
-      sheets[sheet].cssRules.length = 0;
+      if (sheet !== '__keyframes__') {
+        sheets[sheet].cssRules.length = 0;
+      }
     }
     if (baseTokens) {
       sheets.__variables__.insertRule(baseTokens);
@@ -693,6 +750,7 @@ export const createCss = <T extends TConfig>(
         },
         [
           `/* STITCHES:__variables__ */\n${sheets.__variables__.cssRules.join('\n')}`,
+          `/* STITCHES:__keyframes__ */\n${sheets.__keyframes__.cssRules.join('\n')}`,
           `/* STITCHES */\n${sheets[MAIN_BREAKPOINT_ID].cssRules.join('\n')}`,
         ]
       ),

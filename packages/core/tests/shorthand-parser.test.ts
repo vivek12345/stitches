@@ -11,9 +11,12 @@ import {
   borderRight,
   boxShadow,
   font,
+  gap,
   margin,
   padding,
   transition,
+  textDecoration,
+  flex,
 } from '../src/shorthand-parser';
 
 const tokens = {
@@ -929,6 +932,222 @@ describe('Box-shadow', () => {
     expect(boxShadow(tokens, '60px -16px gray400, 60px -16px gray400')).toMatchInlineSnapshot(`
       Object {
         "boxShadow": "60px -16px #e3e3e3, 60px -16px #e3e3e3",
+      }
+    `);
+  });
+});
+
+describe('Text decoration shorthand', () => {
+  test('Handles text-decoration shorthand', () => {
+    expect(textDecoration(tokens, 'none')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationLine": "none",
+      }
+    `);
+    expect(textDecoration(tokens, 'none none')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationLine": "none none",
+      }
+    `);
+    expect(textDecoration(tokens, 'red wavy')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationStyle": "wavy",
+      }
+    `);
+    expect(textDecoration(tokens, 'underline overline red wavy')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationLine": "underline overline",
+        "textDecorationStyle": "wavy",
+      }
+    `);
+    expect(textDecoration(tokens, 'gray400 overline wavy')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "#e3e3e3",
+        "textDecorationLine": "overline",
+        "textDecorationStyle": "wavy",
+      }
+    `);
+    expect(textDecoration(tokens, 'underline dotted red')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationLine": "underline",
+        "textDecorationStyle": "dotted",
+      }
+    `);
+    expect(textDecoration(tokens, 'unset')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "unset",
+        "textDecorationLine": "unset",
+        "textDecorationStyle": "unset",
+        "textDecorationThickness": "unset",
+      }
+    `);
+    expect(textDecoration(tokens, 'underline dotted red 50%')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationLine": "underline",
+        "textDecorationStyle": "dotted",
+        "textDecorationThickness": "50%",
+      }
+    `);
+    expect(textDecoration(tokens, 'dotted red 4px')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationStyle": "dotted",
+        "textDecorationThickness": "4px",
+      }
+    `);
+    expect(textDecoration(tokens, 'dotted red auto')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationStyle": "dotted",
+        "textDecorationThickness": "auto",
+      }
+    `);
+    expect(textDecoration(tokens, 'red 4rem')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationThickness": "4rem",
+      }
+    `);
+    expect(textDecoration(tokens, 'red from-font')).toMatchInlineSnapshot(`
+      Object {
+        "textDecorationColor": "red",
+        "textDecorationThickness": "from-font",
+      }
+    `);
+  });
+});
+
+describe('Gap shorthand', () => {
+  test('Handles gap shorthand', () => {
+    // works
+    expect(gap(tokens, '1em')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "1em",
+        "rowGap": "1em",
+      }
+    `);
+
+    expect(gap(tokens, '5% 0')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "0",
+        "rowGap": "5%",
+      }
+    `);
+
+    expect(gap(tokens, '10px 50px')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "50px",
+        "rowGap": "10px",
+      }
+    `);
+
+    expect(gap(tokens, '0')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "0",
+        "rowGap": "0",
+      }
+    `);
+  });
+
+  test('Handles gap with tokens', () => {
+    expect(gap(tokens, '1')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "5px",
+        "rowGap": "5px",
+      }
+    `);
+
+    expect(gap(tokens, '1 2')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "10px",
+        "rowGap": "5px",
+      }
+    `);
+  });
+
+  test('Handles gap with css functions', () => {
+    expect(gap(tokens, 'calc(10px + 100px)')).toMatchInlineSnapshot(`
+      Object {
+        "columnGap": "calc(10px + 100px)",
+        "rowGap": "calc(10px + 100px)",
+      }
+    `);
+  });
+});
+
+describe('Flex shorthand', () => {
+  test('Handles flex shorthand (One value, unitless number: flex-grow)', () => {
+    expect(flex(tokens, '1')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "0%",
+        "flexGrow": "1",
+        "flexShrink": "1",
+      }
+    `);
+
+    expect(flex(tokens, '0')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "0%",
+        "flexGrow": "0",
+        "flexShrink": "1",
+      }
+    `);
+  });
+
+  test('Handles flex shorthand (One value, width/height: flex-basis)', () => {
+    expect(flex(tokens, '10em')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "10em",
+        "flexGrow": "1",
+        "flexShrink": "1",
+      }
+    `);
+    expect(flex(tokens, '10%')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "10%",
+        "flexGrow": "1",
+        "flexShrink": "1",
+      }
+    `);
+    expect(flex(tokens, 'min-content')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "min-content",
+        "flexGrow": "1",
+        "flexShrink": "1",
+      }
+    `);
+  });
+
+  test('Handles flex shorthand (Two values, unitless number | width: flex-grow | flex-basis)', () => {
+    expect(flex(tokens, '1 30px')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "30px",
+        "flexGrow": "1",
+        "flexShrink": "1",
+      }
+    `);
+  });
+
+  test('Handles flex shorthand (Two values, unitless number | unitless number: flex-grow | flex-shrink)', () => {
+    expect(flex(tokens, '1 3')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "0%",
+        "flexGrow": "1",
+        "flexShrink": "3",
+      }
+    `);
+  });
+
+  test('Handles flex shorthand (Three values: flex-grow | flex-shrink | flex-basis)', () => {
+    expect(flex(tokens, '2 2 10%')).toMatchInlineSnapshot(`
+      Object {
+        "flexBasis": "10%",
+        "flexGrow": "2",
+        "flexShrink": "2",
       }
     `);
   });
